@@ -41,7 +41,8 @@ endfunction " }}}
 
 function! s:analyze_error(string, current_dir) " {{{
   if a:string =~ '^error:'
-    return { 'type': 'message', 'text': a:string }
+    " without parsing
+    return { 'type': 'warning', 'text': substitute(a:string, 'warning: ', '') }
   endif
 
   let list = split(a:string, ' ')
