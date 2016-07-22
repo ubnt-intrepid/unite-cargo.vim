@@ -31,46 +31,78 @@ endfunction  " }}}
 
 function! s:builder.parse(string, context) " {{{
   if a:string =~ 'error:'
-    return s:analyze_error(a:string, a:context, unite#util#substitute_path_separator(getcwd()))
+    return s:analyze_error(a:string, unite#util#substitute_path_separator(getcwd()))
+  endif
+  if a:string =~ 'warning:'
+    return s:analyze_warning(a:string, unite#util#substitute_path_separator(getcwd()))
   endif
   return { 'type': 'message', 'text': a:string }
 endfunction " }}}
 
-function! s:analyze_error(string, context, current_dir) " {{{
-  let string = a:string
+function! s:analyze_error(string, current_dir) " {{{
+  if a:string =~ '^error:'
+    return { 'type': 'message', 'text': a:string }
+  endif
 
-  let [word, list] = [string, split(string, ':')]
+  let list = split(a:string, ' ')
+  if empty(list)
+    return { 'type': 'message', 'text': a:string }
+  endif
+
   let candidate = {}
 
-  if empty(list)
-    return { 'type': 'message', 'text': string }
-  endif
+  let token  = list[0][:-2]
+  let remains = join(list[3:-1])
 
-  if len(word) == 1 && unite#util#is_windows()
-    let candidate.word = word . list[0]
-    let list = list[1:]
-  endif
-
-  let filename = unite#util#substitute_path_separator(word[:1].list[0])
-  let candidate.filename = (filename !~ '^/\|\a\+:/') ? a:current_dir . '/' . filename : filename
-
-  let list = list[1:]
-
+  let [filename, line, column] = split(token, ':')
   if !filereadable(filename) && '\<\f\+:'
-    return { 'type': 'message', 'text': string }
+    return { 'type': 'message', 'text': a:string }
+  endif
+ 
+  let candidate.filename = (filename !~ '^/\|\a\+:/') ? a:current_dir . '/' . filename : filename
+  if line  =~ '^\d\+$'
+    let candidate.line = line
+  endif
+  if column =~ '^\d\+$'
+    let candidate.col = column
   endif
 
-  if len(list) > 0 && list[0] =~ '^\d\+$'
-    let candidate.line = list[0]
-    if len(list) > 1 && list[1] =~ '^\d\+$'
-      let candidate.col = list[1]
-      let list = list[1:]
-    endif
-    let list = list[1:]
-  endif
-
+  let candidate.text = remains
   let candidate.type = 'error'
-  let candidate.text = fnamemodify(filename, ':t') . ' : ' . join(list, ':')
+
+  return candidate
+endfunction " }}}
+
+function! s:analyze_warning(string, current_dir) " {{{
+  if a:string =~ '^warning:'
+    return { 'type': 'message', 'text': a:string }
+  endif
+
+  let list = split(a:string, ' ')
+  if empty(list)
+    return { 'type': 'message', 'text': a:string }
+  endif
+
+  let candidate = {}
+
+  let token  = list[0][:-2]
+  let remains = join(list[3:-1])
+
+  let [filename, line, column] = split(token, ':')
+  if !filereadable(filename) && '\<\f\+:'
+    return { 'type': 'message', 'text': a:string }
+  endif
+ 
+  let candidate.filename = (filename !~ '^/\|\a\+:/') ? a:current_dir . '/' . filename : filename
+  if line  =~ '^\d\+$'
+    let candidate.line = line
+  endif
+  if column =~ '^\d\+$'
+    let candidate.col = column
+  endif
+
+  let candidate.text = remains
+  let candidate.type = 'warning'
 
   return candidate
 endfunction " }}}
